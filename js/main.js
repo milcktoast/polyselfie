@@ -404,6 +404,10 @@
 			video.request(onRequest);
 		});
 
+		window.addEventListener("resize", function (event) {
+			sketch.setSize(window.innerWidth, window.innerHeight);
+		});
+
 		loop.play();
 	}());
 	
