@@ -68,7 +68,7 @@
 
 	VideoBuffer.prototype = {
 
-		request: function () {
+		request: function (cb) {
 			var that = this;
 			navigator.webkitGetUserMedia({video: true}, function (stream) {
 				that.hasDiff = false;
@@ -76,8 +76,10 @@
 				that.stream = stream;
 				that.el.src = window.URL.createObjectURL(stream);
 				that.play();
+				cb(null);
 			}, function (error) {
 				console.error(error);
+				cb(error);
 			});
 		},
 
@@ -356,11 +358,17 @@
 	(function setup() {
 		var scale = 32;
 		var body = document.body;
+		var startButton = document.getElementById("start");
+
 		var video = new VideoBuffer(4 * scale, 3 * scale);
 		var sketch = new VideoSketch(video);
 		var loop = new Looper(function () {
 			sketch.draw();
 		});
+
+		var onRequest = function (err) {
+			if (!err) { body.className += "is-recording"; }
+		};
 
 		sketch.setSize(window.innerWidth, window.innerHeight);
 		sketch.setRange(200, 400);
@@ -384,12 +392,16 @@
 		document.addEventListener("keyup", function (event) {
 			switch (event.which) {
 			case 82: // [r]
-				video.request();
+				video.request(onRequest);
 				break;
 			case 32: // [space]
 				loop.toggle();
 				break;
 			}
+		});
+
+		startButton.addEventListener("click", function (event) {
+			video.request(onRequest);
 		});
 
 		loop.play();

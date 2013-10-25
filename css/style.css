@@ -1,0 +1,39 @@
+
+body {
+	font: 14px/1 monospace;
+}
+
+button {
+	padding: 8px;
+
+	font-family: monospace;
+	color: #444;
+	border: 1px solid #444;
+	border-radius: 2px;
+	background: #fafafa;
+	transition: all 200ms;
+	cursor: pointer;
+}
+
+button:hover {
+	background: #444;
+	color: #fff;
+}
+
+.start-wrap {
+	position: absolute;
+	top: 50%;
+	left: 0;
+	z-index: 10;
+	width: 100%;
+	text-align: center;
+
+	visibility: visible;
+	opacity: 1;
+	transition: all 500ms;
+}
+
+.is-recording .start-wrap {
+	visibility: hidden;
+	opacity: 0;
+}
