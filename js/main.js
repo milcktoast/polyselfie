@@ -1,11 +1,6 @@
 (function () {
 	"use strict";
 
-	var quadtree = window.d3.geom.quadtree;
-	var createQuadtree = quadtree()
-		.x(function (d) { return d[0]; })
-		.y(function (d) { return d[1]; });
-
 	var DEBUG = true;
 	var DEBUG_POOL = false;
 
@@ -24,6 +19,41 @@
 		}
 	};
 
+	var extend = function (o, attrs) {
+		for (var prop in attrs) {
+			if (attrs.hasOwnProperty(prop)) {
+				o[prop] = attrs[prop];
+			}
+		}
+	};
+
+	var createArray = (function () {
+		var root = this;
+		var types = {
+			i8: "Int8Array",
+			f32: "Float32Array"
+		};
+
+		return function (type, size) {
+			var ArrayCtor = (root[types[type] || type] || Array);
+			return new ArrayCtor(size);
+		};
+	}).call(this);
+
+	// Maths
+	// -----
+
+	var distanceSq = function (x0, y0, x1, y1) {
+		var x = x1 - x0;
+		var y = y1 - y0;
+		return x * x + y * y;
+	};
+
+	var quadtree = window.d3.geom.quadtree;
+	var createQuadtree = quadtree()
+		.x(function (d) { return d[0]; })
+		.y(function (d) { return d[1]; });
+
 	// Video buffer
 	// ------------
 
@@ -33,7 +63,7 @@
 		this.ctx = this.buffer.getContext("2d");
 
 		this.setSize(width, height);
-		this.pixels = new Float32Array(this.size * 4);
+		this.pixels = createArray("f32", this.size * 4);
 	}
 
 	VideoBuffer.prototype = {
@@ -140,10 +170,7 @@
 		this._nodePool = [];
 		this.nodes = [];
 		this.quadtree = null;
-		this.range = new Float32Array(2);
-
-		this.setSize(video.width, video.height);
-		this.setRange(100, 300);
+		this.range = createArray("f32", 2);
 	}
 
 	VideoSketch.prototype = {
@@ -166,18 +193,20 @@
 			var index = this._nodePoolIndex;
 			var node = pool[this._nodePoolIndex];
 
-			if (!node) { node = pool[index] = new Float32Array(3); }
+			if (!node) { node = pool[index] = createArray("f32", 3); }
 			this._nodePoolIndex ++;
 			return node;
 		},
 
 		addNode: function (i, diff) {
 			var node = this.getNodeFromPool();
-			var width = this.width;
+			var width = this.video.width;
+			var height = this.video.height;
 
 			// x, y, d
-			node[0] = i % width;
-			node[1] = Math.floor(i / width);
+			// x, y mapped from [0, 1] and mirrored
+			node[0] = Math.abs((i % width) / width - 1);
+			node[1] = Math.floor(i / width) / height;
 			node[2] = diff;
 
 			this.nodes.push(node);
@@ -191,43 +220,100 @@
 			var video = this.video;
 			if (!video.isStreaming) { return; }
 
-			var ctx = this.ctx;
+			var nodes = this.nodes;
 			var imageData = video.readPixels();
 
 			this.reset();
 			video.forFrameDiff(imageData.data, this.range, this.addNode);
 
-			if (this.nodes.length) {
+			if (nodes.length) {
 				this.updateQuadtree();
 				if (DEBUG_POOL) {
-					console.log(this.nodes.length, this._nodePool.length);
+					console.log(nodes.length, this._nodePool.length);
 				}
 			}
 
+			var ctx = this.ctx;
+			var i, il;
+
+			// Clear
 			ctx.fillStyle = "white";
 			ctx.globalAlpha = 0.1;
 			ctx.fillRect(0, 0, this.width, this.height);
 
-			if (DEBUG) {
-				this.drawNodes();
+			// Draw connections
+			ctx.fillStyle = "#222222";
+			ctx.globalAlpha = 0.25;
+
+			for (i = 0, il = nodes.length; i < il; i ++) {
+				this.drawConnections(ctx, nodes[i]);
+			}
+
+			// Draw nodes
+			ctx.fillStyle = "#fafafafa";
+			ctx.globalAlpha = 0.15;
+
+			for (i = 0, il = nodes.length; i < il; i ++) {
+				this.drawNode(ctx, nodes[i]);
 			}
 		},
 
-		drawNodes: function () {
-			var ctx = this.ctx;
-			var nodes = this.nodes;
-			var n, i, il;
+		drawNode: function (ctx, node) {
+			var x = node[0] * this.width;
+			var y = node[1] * this.height;
+			var radius = node[2] / 100;
 
-			ctx.fillStyle = "#444444";
-			ctx.globalAlpha = 0.9;
+			ctx.beginPath();
+			ctx.arc(x, y, radius, 0, Math.PI * 2, false);
+			ctx.fill();
+
+			ctx.beginPath();
+			ctx.arc(x, y, radius * 4, 0, Math.PI * 2, false);
+			ctx.stroke();
+		},
+
+		drawConnections: function (ctx, node) {
+			var w = this.width;
+			var h = this.height;
+			var x0 = node[0] * w;
+			var y0 = node[1] * h;
+			var radius = node[2] / 10000;
+
+			var nodes = this.search(this.quadtree, node[0], node[1], radius);
+			var i, il, n, x1, y1;
+
+			ctx.beginPath();
 
 			for (i = 0, il = nodes.length; i < il; i ++) {
 				n = nodes[i];
-				ctx.beginPath();
-				ctx.arc(n[0], n[1], n[2] / 200, 0, Math.PI * 2, false);
-				ctx.closePath();
-				ctx.fill();
+				x1 = n[0] * w;
+				y1 = n[1] * h;
+
+				ctx.moveTo(x0, y0);
+				ctx.lineTo(x1, y1);
 			}
+
+			ctx.stroke();
+		},
+
+		search: function (quadtree, x, y, radius) {
+			var x0 = x - radius;
+			var y0 = y - radius;
+			var x3 = x + radius;
+			var y3 = y + radius;
+			var radiusSq = radius * radius;
+			var matches = [];
+
+			quadtree.visit(function(node, x1, y1, x2, y2) {
+				var p = node.point;
+				if (p && distanceSq(x, y, p[0], p[1]) <= radiusSq) {
+					matches.push(p);
+				}
+
+				return x1 >= x3 || y1 >= y3 || x2 < x0 || y2 < y0;
+			});
+
+			return matches;
 		},
 
 		reset: function () {
@@ -267,27 +353,46 @@
 	// Setup
 	// -----
 
-	var scale = 32;
-	var video = new VideoBuffer(4 * scale, 3 * scale);
-	var sketch = new VideoSketch(video);
-	var loop = new Looper(function () {
-		sketch.draw();
-	});
+	(function setup() {
+		var scale = 32;
+		var body = document.body;
+		var video = new VideoBuffer(4 * scale, 3 * scale);
+		var sketch = new VideoSketch(video);
+		var loop = new Looper(function () {
+			sketch.draw();
+		});
 
-	document.body.appendChild(video.el);
-	document.body.appendChild(sketch.el);
+		sketch.setSize(window.innerWidth, window.innerHeight);
+		sketch.setRange(200, 400);
 
-	document.addEventListener("keyup", function (event) {
-		switch (event.which) {
-		case 82: // [r]
-			video.request();
-			break;
-		case 32: // [space]
-			loop.toggle();
-			break;
-		}
-	});
+		extend(sketch.el.style, {
+			position: "absolute",
+			top: "0",
+			left: "0"
+		});
 
-	loop.play();
+		extend(video.el.style, {
+			position: "absolute",
+			top: "10px",
+			left: "10px",
+			webkitTransform: "scaleX(-1)"
+		});
+
+		body.appendChild(sketch.el);
+		body.appendChild(video.el);
+
+		document.addEventListener("keyup", function (event) {
+			switch (event.which) {
+			case 82: // [r]
+				video.request();
+				break;
+			case 32: // [space]
+				loop.toggle();
+				break;
+			}
+		});
+
+		loop.play();
+	}());
 	
-}());
+}).call(this);
