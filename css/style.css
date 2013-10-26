@@ -1,23 +1,23 @@
 
 body {
 	font: 14px/1 monospace;
+	background-color: #444;
 }
 
 button {
 	padding: 8px;
-
 	font-family: monospace;
-	color: #444;
-	border: 1px solid #444;
+	color: #fff;
+	border: 1px solid #fff;
 	border-radius: 2px;
-	background: #fafafa;
+	background: #444;
 	transition: all 200ms;
 	cursor: pointer;
 }
 
 button:hover {
-	background: #444;
-	color: #fff;
+	background: #fff;
+	color: #444;
 }
 
 .start-wrap {

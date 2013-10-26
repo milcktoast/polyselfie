@@ -1,7 +1,7 @@
 (function () {
 	"use strict";
 
-	var DEBUG = true;
+	var DEBUG = false;
 	var DEBUG_POOL = false;
 
 	// Utils
@@ -161,8 +161,9 @@
 	// Sketch
 	// ------
 
-	function VideoSketch(video) {
+	function VideoSketch(video, opts) {
 		bindAll(this, "addNode");
+		extend(this, opts);
 
 		this.el = document.createElement("canvas");
 		this.ctx = this.el.getContext("2d");
@@ -200,6 +201,17 @@
 			return node;
 		},
 
+		// Shift elements from beginning of pool to end
+		shiftNodePool: function (n) {
+			var pool = this._nodePool;
+			var removed = pool.splice(0, n);
+
+			this._nodePool = pool.concat(removed);
+			this._nodePoolIndex -= n;
+
+			if (DEBUG_POOL) { console.log(this._nodePool.length); }
+		},
+
 		addNode: function (i, diff) {
 			var node = this.getNodeFromPool();
 			var width = this.video.width;
@@ -225,7 +237,6 @@
 			var nodes = this.nodes;
 			var imageData = video.readPixels();
 
-			this.reset();
 			video.forFrameDiff(imageData.data, this.range, this.addNode);
 
 			if (nodes.length) {
@@ -239,24 +250,31 @@
 			var i, il;
 
 			// Clear
-			ctx.fillStyle = "white";
+			ctx.globalCompositeOperation = "source-over";
+			ctx.fillStyle = "#444444";
 			ctx.globalAlpha = 0.1;
 			ctx.fillRect(0, 0, this.width, this.height);
+			ctx.globalCompositeOperation = "lighter";
+			// ctx.clearRect(0, 0, this.width, this.height);
 
 			// Draw connections
-			ctx.fillStyle = "#222222";
-			ctx.globalAlpha = 0.15;
+			ctx.fillStyle = "#fafafa";
+			ctx.globalAlpha = 0.05;
 
 			for (i = 0, il = nodes.length; i < il; i ++) {
 				this.drawConnections(ctx, nodes[i]);
 			}
 
 			// Draw nodes
-			ctx.fillStyle = "#fafafafa";
-			ctx.globalAlpha = 0.15;
+			/*ctx.strokeStyle = "#fafafa";
+			ctx.globalAlpha = 0.25;
 
 			for (i = 0, il = nodes.length; i < il; i ++) {
 				this.drawNode(ctx, nodes[i]);
+			}*/
+
+			if (nodes.length) {
+				this.reset();
 			}
 		},
 
@@ -274,9 +292,6 @@
 			ctx.stroke();
 		},
 
-		// TODO
-		// - Draw connections between several frames of data
-		// - Create polygons from connections
 		drawConnections: function (ctx, node) {
 			var w = this.width;
 			var h = this.height;
@@ -288,17 +303,20 @@
 			var i, il, n, x1, y1;
 
 			ctx.beginPath();
+			ctx.moveTo(x0, y0);
 
 			for (i = 0, il = nodes.length; i < il; i ++) {
 				n = nodes[i];
 				x1 = n[0] * w;
 				y1 = n[1] * h;
 
-				ctx.moveTo(x0, y0);
+				if (i % 2 === 0) { ctx.lineTo(x0, y0); }
+
 				ctx.lineTo(x1, y1);
 			}
 
-			ctx.stroke();
+			ctx.closePath();
+			ctx.fill();
 		},
 
 		search: function (quadtree, x, y, radius) {
@@ -322,8 +340,13 @@
 		},
 
 		reset: function () {
-			this._nodePoolIndex = 0;
-			this.nodes.length = 0;
+			var nodes = this.nodes;
+			var diff = Math.max(nodes.length - this.nodesMax, this.nodesRemove);
+
+			if (diff > 0) {
+				nodes.splice(0, diff);
+				this.shiftNodePool(diff);
+			}
 		}
 
 	};
@@ -331,12 +354,12 @@
 	// Loop
 	// ----
 
-	function Looper(frame) {
+	function Looper(onFrame) {
 		var isLooping = false;
 
 		function animate() {
 			if (!isLooping) { return; }
-			frame();
+			onFrame();
 			window.requestAnimationFrame(animate);
 		}
 
@@ -368,8 +391,12 @@
 		var startButton = document.getElementById("start");
 
 		var video = new VideoBuffer(4 * scale, 3 * scale);
-		var sketch = new VideoSketch(video);
-		var loop = new Looper(function () {
+		var sketch = new VideoSketch(video, {
+			nodesMax: 200,
+			nodesRemove: 10
+		});
+
+		var loop = new Looper(function (frame) {
 			sketch.draw();
 		});
 
@@ -380,21 +407,22 @@
 		sketch.setSize(window.innerWidth, window.innerHeight);
 		sketch.setRange(200, 400);
 
+		body.appendChild(sketch.el);
 		extend(sketch.el.style, {
 			position: "absolute",
 			top: "0",
 			left: "0"
 		});
 
-		extend(video.el.style, {
-			position: "absolute",
-			top: "10px",
-			left: "10px",
-			webkitTransform: "scaleX(-1)"
-		});
-
-		body.appendChild(sketch.el);
-		body.appendChild(video.el);
+		if (DEBUG) {
+			body.appendChild(video.el);
+			extend(video.el.style, {
+				position: "absolute",
+				top: "10px",
+				left: "10px",
+				webkitTransform: "scaleX(-1)"
+			});
+		}
 
 		document.addEventListener("keyup", function (event) {
 			switch (event.which) {
