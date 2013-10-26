@@ -245,7 +245,7 @@
 
 			// Draw connections
 			ctx.fillStyle = "#222222";
-			ctx.globalAlpha = 0.25;
+			ctx.globalAlpha = 0.15;
 
 			for (i = 0, il = nodes.length; i < il; i ++) {
 				this.drawConnections(ctx, nodes[i]);
@@ -274,12 +274,15 @@
 			ctx.stroke();
 		},
 
+		// TODO
+		// - Draw connections between several frames of data
+		// - Create polygons from connections
 		drawConnections: function (ctx, node) {
 			var w = this.width;
 			var h = this.height;
 			var x0 = node[0] * w;
 			var y0 = node[1] * h;
-			var radius = node[2] / 10000;
+			var radius = node[2] / (1000 * 4);
 
 			var nodes = this.search(this.quadtree, node[0], node[1], radius);
 			var i, il, n, x1, y1;
@@ -355,8 +358,12 @@
 	// Setup
 	// -----
 
+	// TODO
+	// Initialize with static video
+	// Prompt user to stream live video feed
+
 	(function setup() {
-		var scale = 32;
+		var scale = 16;
 		var body = document.body;
 		var startButton = document.getElementById("start");
 
