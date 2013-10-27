@@ -1,7 +1,7 @@
 (function () {
 	"use strict";
 
-	var DEBUG = false;
+	var DEBUG = true;
 	var DEBUG_POOL = false;
 
 	// Utils
@@ -62,6 +62,7 @@
 		this.buffer = document.createElement("canvas");
 		this.ctx = this.buffer.getContext("2d");
 
+		this.el.addEventListener("ended", this.onVideoEnd.bind(this));
 		this.setSize(width, height);
 		this.pixels = createArray("f32", this.size * 4);
 	}
@@ -74,7 +75,7 @@
 				that.hasDiff = false;
 				that.isStreaming = true;
 				that.stream = stream;
-				that.el.src = window.URL.createObjectURL(stream);
+				that.setSource(window.URL.createObjectURL(stream));
 				that.play();
 				cb(null);
 			}, function (error) {
@@ -92,6 +93,15 @@
 			this.size = w * h;
 		},
 
+		// TODO: Add video format support detection
+		setSource: function (source) {
+			this.el.src = source;
+		},
+
+		seek: function (to) {
+			this.el.currentTime = to;
+		},
+
 		play: function () {
 			this.isPlaying = true;
 			this.el.play();
@@ -100,6 +110,16 @@
 		pause: function () {
 			this.isPlaying = false;
 			this.el.pause();
+		},
+
+		toggle: function () {
+			if (this.isPlaying) { this.pause(); }
+			else { this.play(); }
+		},
+
+		onVideoEnd: function (event) {
+			this.seek(0);
+			this.play();
 		},
 
 		readPixels: function () {
@@ -232,7 +252,7 @@
 
 		draw: function () {
 			var video = this.video;
-			if (!video.isStreaming) { return; }
+			// if (!video.isStreaming) { return; }
 
 			var nodes = this.nodes;
 			var imageData = video.readPixels();
@@ -250,28 +270,25 @@
 			var i, il;
 
 			// Clear
-			ctx.globalCompositeOperation = "source-over";
-			ctx.fillStyle = "#444444";
-			ctx.globalAlpha = 0.1;
+			extend(ctx, this.clearStyle);
 			ctx.fillRect(0, 0, this.width, this.height);
-			ctx.globalCompositeOperation = "lighter";
 			// ctx.clearRect(0, 0, this.width, this.height);
 
 			// Draw connections
-			ctx.fillStyle = "#fafafa";
-			ctx.globalAlpha = 0.05;
-
+			extend(ctx, this.connectionStyle);
 			for (i = 0, il = nodes.length; i < il; i ++) {
 				this.drawConnections(ctx, nodes[i]);
 			}
 
 			// Draw nodes
-			/*ctx.strokeStyle = "#fafafa";
+			/*
+			ctx.strokeStyle = "#fafafa";
 			ctx.globalAlpha = 0.25;
 
 			for (i = 0, il = nodes.length; i < il; i ++) {
 				this.drawNode(ctx, nodes[i]);
-			}*/
+			}
+			*/
 
 			if (nodes.length) {
 				this.reset();
@@ -292,12 +309,14 @@
 			ctx.stroke();
 		},
 
+		// TODO
+		// Sort connection points by angle to improve quality of drawn polygons
 		drawConnections: function (ctx, node) {
 			var w = this.width;
 			var h = this.height;
 			var x0 = node[0] * w;
 			var y0 = node[1] * h;
-			var radius = node[2] / (1000 * 4);
+			var radius = node[2] / (1000 * 5);
 
 			var nodes = this.search(this.quadtree, node[0], node[1], radius);
 			var i, il, n, x1, y1;
@@ -311,7 +330,6 @@
 				y1 = n[1] * h;
 
 				if (i % 2 === 0) { ctx.lineTo(x0, y0); }
-
 				ctx.lineTo(x1, y1);
 			}
 
@@ -327,7 +345,7 @@
 			var radiusSq = radius * radius;
 			var matches = [];
 
-			quadtree.visit(function(node, x1, y1, x2, y2) {
+			quadtree.visit(function searchVisit(node, x1, y1, x2, y2) {
 				var p = node.point;
 				if (p && distanceSq(x, y, p[0], p[1]) <= radiusSq) {
 					matches.push(p);
@@ -343,10 +361,8 @@
 			var nodes = this.nodes;
 			var diff = Math.max(nodes.length - this.nodesMax, this.nodesRemove);
 
-			if (diff > 0) {
-				nodes.splice(0, diff);
-				this.shiftNodePool(diff);
-			}
+			nodes.splice(0, diff);
+			this.shiftNodePool(diff);
 		}
 
 	};
@@ -357,6 +373,7 @@
 	function Looper(onFrame) {
 		var isLooping = false;
 
+		// TODO: Implement requestAnimationFrame polyfill
 		function animate() {
 			if (!isLooping) { return; }
 			onFrame();
@@ -391,9 +408,20 @@
 		var startButton = document.getElementById("start");
 
 		var video = new VideoBuffer(4 * scale, 3 * scale);
+
 		var sketch = new VideoSketch(video, {
-			nodesMax: 200,
-			nodesRemove: 10
+			nodesMax: 300,
+			nodesRemove: 10,
+			clearStyle: {
+				fillStyle: "#444444",
+				globalAlpha: 0.1,
+				globalCompositeOperation: "source-over"
+			},
+			connectionStyle: {
+				fillStyle: "#fafafa",
+				globalAlpha: 0.01,
+				globalCompositeOperation: "lighter"
+			}
 		});
 
 		var loop = new Looper(function (frame) {
@@ -404,6 +432,7 @@
 			if (!err) { body.className += "is-recording"; }
 		};
 
+		video.setSource("/video/selfie.mp4");
 		sketch.setSize(window.innerWidth, window.innerHeight);
 		sketch.setRange(200, 400);
 
@@ -422,18 +451,19 @@
 				left: "10px",
 				webkitTransform: "scaleX(-1)"
 			});
-		}
 
-		document.addEventListener("keyup", function (event) {
-			switch (event.which) {
-			case 82: // [r]
-				video.request(onRequest);
-				break;
-			case 32: // [space]
-				loop.toggle();
-				break;
-			}
-		});
+			document.addEventListener("keyup", function (event) {
+				switch (event.which) {
+				case 82: // [r]
+					video.request(onRequest);
+					break;
+				case 32: // [space]
+					video.toggle();
+					loop.toggle();
+					break;
+				}
+			});
+		}
 
 		startButton.addEventListener("click", function (event) {
 			video.request(onRequest);
@@ -443,6 +473,7 @@
 			sketch.setSize(window.innerWidth, window.innerHeight);
 		});
 
+		video.play();
 		loop.play();
 	}());
 	
