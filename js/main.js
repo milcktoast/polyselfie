@@ -93,10 +93,37 @@
 			this.size = w * h;
 		},
 
-		// TODO: Add video format support detection
-		setSource: function (source) {
-			this.el.src = source;
+		setSource: function (source, formats) {
+			if (!formats) {
+				this.el.src = source;
+				return;
+			}
+
+			var hasSupport = this.formats;
+			var format;
+
+			for (var i = 0, il = formats.length; i < il; i ++) {
+				format = formats[i];
+				if (hasSupport[format]) {
+					this.el.src = source + "." + format;
+					break;
+				}
+			}
 		},
+
+		formats: (function () {
+			var el = document.createElement("video");
+			if (!(el && el.canPlayType)) { return null; }
+
+			var canPlay = el.canPlayType.bind(el);
+			return {
+				mp4: !!canPlay('video/mp4; codecs="mp4v.20.8"'),
+				h264: !!(canPlay('video/mp4; codecs="avc1.42E01E"') ||
+					canPlay('video/mp4; codecs="avc1.42E01E, mp4a.40.2"')),
+				ogv: !!canPlay('video/ogg; codecs="theora"'),
+				webm: !!canPlay('video/webm; codecs="vp8, vorbis"')
+			};
+		}()),
 
 		seek: function (to) {
 			this.el.currentTime = to;
@@ -432,7 +459,7 @@
 			if (!err) { body.className += "is-recording"; }
 		};
 
-		video.setSource("/video/selfie.mp4");
+		video.setSource("/video/selfie", ["ogv", "mp4"]);
 		sketch.setSize(window.innerWidth, window.innerHeight);
 		sketch.setRange(200, 400);
 
