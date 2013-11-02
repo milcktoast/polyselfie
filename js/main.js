@@ -62,9 +62,9 @@
 		this.buffer = document.createElement("canvas");
 		this.ctx = this.buffer.getContext("2d");
 
-		this.el.addEventListener("ended", this.onVideoEnd.bind(this));
 		this.setSize(width, height);
 		this.pixels = createArray("f32", this.size * 4);
+		this.el.addEventListener("ended", this.onVideoEnd.bind(this));
 	}
 
 	VideoBuffer.prototype = {
@@ -279,7 +279,7 @@
 
 		draw: function () {
 			var video = this.video;
-			// if (!video.isStreaming) { return; }
+			if (!(video.isStreaming || video.isPlaying)) { return; }
 
 			var nodes = this.nodes;
 			var imageData = video.readPixels();
@@ -424,10 +424,6 @@
 
 	// Setup
 	// -----
-
-	// TODO
-	// Initialize with static video
-	// Prompt user to stream live video feed
 
 	(function setup() {
 		var scale = 16;
