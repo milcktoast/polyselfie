@@ -1,6 +1,5 @@
 (function () {
 
-  var d3 = window.d3 = {geom: {}};
   var abs = Math.abs;
 
   // import "../core/functor";
@@ -19,7 +18,7 @@
     return d[1];
   }
 
-  d3.geom.quadtree = function(points, x1, y1, x2, y2) {
+  var d3_geom_quadtree = function(points, x1, y1, x2, y2) {
     var x = d3_svg_lineX,
         y = d3_svg_lineY,
         compat;
@@ -205,5 +204,7 @@
       if (children[3]) d3_geom_quadtreeVisit(f, children[3], sx, sy, x2, y2);
     }
   }
+
+  module.exports = d3_geom_quadtree;
 
 }());
