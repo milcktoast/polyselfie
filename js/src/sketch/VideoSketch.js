@@ -5,7 +5,7 @@ var bindAll = require("../utils/function").bindAll;
 var extend = require("../utils/object").extend;
 var vec2 = require("../math/vec2");
 var createArray = require("../utils/typed-array").create;
-var quadtree = require("../libs/d3/d3-quadtree");
+var quadtree = require("../../libs/d3/d3-quadtree");
 
 var createQuadtree = quadtree()
 	.x(function (d) { return d[0]; })
