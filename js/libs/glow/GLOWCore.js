@@ -2214,3 +2214,6 @@ GLOW.InterleavedAttributes = (function() {
     
     return GLOWInterleavedAttributes;
 })();
+
+module.exports = GLOW;
+

@@ -1,7 +1,7 @@
 // Video buffer
 // ------------
 
-var createArray = require("../utils/typed-array").create;
+var createArray = require("../utils/array").create;
 
 module.exports = VideoBuffer;
 

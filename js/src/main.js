@@ -15,25 +15,15 @@ var VIDEO_SCALE = 16;
 
 var video = new VideoBuffer(4 * VIDEO_SCALE, 3 * VIDEO_SCALE);
 var sketch = new VideoSketch(video, {
-	nodesMax: 300,
-	nodesRemove: 10,
-	clearStyle: {
-		fillStyle: "#444444",
-		globalAlpha: 0.1,
-		globalCompositeOperation: "source-over"
-	},
-	connectionStyle: {
-		fillStyle: "#fafafa",
-		globalAlpha: 0.01,
-		globalCompositeOperation: "lighter"
-	}
+	nodesMax: 200,
+	nodesRemove: 10
 });
 
 var loop = new Looper(function (frame) {
 	sketch.draw();
 });
 
-video.setSource("/video/selfie", ["ogv", "mp4"]);
+// video.setSource("/video/selfie", ["ogv", "mp4"]);
 sketch.setSize(window.innerWidth, window.innerHeight);
 sketch.setRange(200, 400);
 

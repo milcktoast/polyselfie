@@ -15,5 +15,11 @@ module.exports = {
 	create: function (type, size) {
 		var ArrayCtor = (root[types[type] || type] || Array);
 		return new ArrayCtor(size);
+	},
+
+	range: function (type, size) {
+		var array = this.create(type, size);
+		for (var i = 0; i < size; i ++) { array[i] = i; }
+		return array;
 	}
 };

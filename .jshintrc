@@ -41,7 +41,7 @@
 	"validthis"     : false,
 	
 	"browser"       : true,
-	"node"          : false,
+	"node"          : true,
 	
 	"nomen"         : false,
 	"onevar"        : false,

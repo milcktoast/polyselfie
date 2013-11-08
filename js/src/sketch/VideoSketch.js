@@ -1,15 +1,20 @@
+/*global GL*/
+
 // Sketch
 // ------
 
+var fs = require("fs");
 var bindAll = require("../utils/function").bindAll;
-var extend = require("../utils/object").extend;
-var vec2 = require("../math/vec2");
-var createArray = require("../utils/typed-array").create;
-var quadtree = require("../../libs/d3/d3-quadtree");
+var object = require("../utils/object");
+var array = require("../utils/array");
 
+var vec2 = require("../math/vec2");
+var quadtree = require("../../libs/d3/d3-quadtree");
 var createQuadtree = quadtree()
 	.x(function (d) { return d[0]; })
 	.y(function (d) { return d[1]; });
+
+var Glow = require("../../libs/glow/GLOWCore");
 
 var DEBUG_POOL = false;
 
@@ -17,25 +22,79 @@ module.exports = VideoSketch;
 
 function VideoSketch(video, opts) {
 	bindAll(this, "addNode");
-	extend(this, opts);
-
-	this.el = document.createElement("canvas");
-	this.ctx = this.el.getContext("2d");
-	this.video = video;
+	object.extend(this, opts);
 
 	this._nodePoolIndex = 0;
 	this._nodePool = [];
 	this.nodes = [];
+
 	this.quadtree = null;
-	this.range = createArray("f32", 2);
+	this.range = array.create("f32", 2);
+
+	this.context = new Glow.Context({
+		// preserveDrawingBuffer: true,
+		clear: {
+			red: 0.2,
+			green: 0.2,
+			blue: 0.2,
+			alpha: 1.0
+		}
+	});
+
+	this.gl = this.context.GL;
+	this.el = this.context.domElement;
+	this.video = video;
+
+	this.context.enableBlend(true, {
+		equation: this.gl.FUNC_ADD,
+		src: this.gl.SRC_ALPHA,
+		dst: this.gl.ONE
+	});
+
+	this.initShader(5000);
 }
 
 VideoSketch.prototype = {
 
+	polyShaderConfig: {
+		vertexShader: fs.readFileSync(__dirname + "/../shaders/poly.vert"),
+		fragmentShader: fs.readFileSync(__dirname + "/../shaders/poly.frag")
+	},
+
+	initShader: function (polys) {
+		var shaderConfig = object.extend({
+			data: {
+				screenWidth: { value: array.create("f32", 1) },
+				screenHeight: { value: array.create("f32", 1) },
+
+				opacity: array.create("f32", polys * 3),
+				vertices: array.create("f32", polys * 3 * 2)
+			},
+
+			indices: array.range("ui8", polys * 3),
+			primitives: this.gl.TRIANGLES,
+
+			interleave: {
+				opacity: false,
+				vertices: false
+			},
+
+			usage: {
+				opacity: this.gl.DYNAMIC_DRAW,
+				vertices: this.gl.DYNAMIC_DRAW,
+				primitives: this.gl.DYNAMIC_DRAW
+			}
+		}, this.polyShaderConfig);
+
+		this.polys = new Glow.Shader(shaderConfig);
+		console.log(shaderConfig, this.polys);
+	},
+
 	setSize: function (w, h) {
 		var el = this.el;
-		this.width = el.width = w;
-		this.height = el.height = h;
+		var polys = this.polys;
+		this.width = el.width = polys.screenWidth.value[0] = w;
+		this.height = el.height = polys.screenHeight.value[0] = h;
 		this.size = w * h;
 	},
 
@@ -50,7 +109,7 @@ VideoSketch.prototype = {
 		var index = this._nodePoolIndex;
 		var node = pool[this._nodePoolIndex];
 
-		if (!node) { node = pool[index] = createArray("f32", 3); }
+		if (!node) { node = pool[index] = array.create("f32", 3); }
 		this._nodePoolIndex ++;
 		return node;
 	},
@@ -74,7 +133,7 @@ VideoSketch.prototype = {
 		// x, y, d
 		// x, y mapped from [0, 1] and mirrored
 		node[0] = Math.abs((i % width) / width - 1);
-		node[1] = Math.floor(i / width) / height;
+		node[1] = Math.abs(Math.floor(i / width) / height - 1);
 		node[2] = diff;
 
 		this.nodes.push(node);
@@ -89,10 +148,14 @@ VideoSketch.prototype = {
 		if (!(video.isStreaming || video.isPlaying)) { return; }
 
 		var nodes = this.nodes;
+		var context = this.context;
+		var polys = this.polys;
 		var imageData = video.readPixels();
 
+		// Push nodes from video frame diff
 		video.forFrameDiff(imageData.data, this.range, this.addNode);
 
+		// Index nodes in quad-tree
 		if (nodes.length) {
 			this.updateQuadtree();
 			if (DEBUG_POOL) {
@@ -100,76 +163,76 @@ VideoSketch.prototype = {
 			}
 		}
 
-		var ctx = this.ctx;
+		var vertAttr = polys.attributes.vertices;
+		var opacAttr = polys.attributes.opacity;
+		var opacity = opacAttr.data;
 		var i, il;
 
-		// Clear
-		extend(ctx, this.clearStyle);
-		ctx.fillRect(0, 0, this.width, this.height);
-		// ctx.clearRect(0, 0, this.width, this.height);
-
-		// Draw connections
-		extend(ctx, this.connectionStyle);
+		// Update geometry
 		for (i = 0, il = nodes.length; i < il; i ++) {
-			this.drawConnections(ctx, nodes[i]);
+			this.updateNode(vertAttr, opacAttr, nodes[i], i);
 		}
 
-		// Draw nodes
-		/*
-		ctx.strokeStyle = "#fafafa";
-		ctx.globalAlpha = 0.25;
-
-		for (i = 0, il = nodes.length; i < il; i ++) {
-			this.drawNode(ctx, nodes[i]);
+		// Fade
+		for (i = 0, il = opacity.length; i < il; i ++) {
+			opacity[i] = Math.max(0, opacity[i] - 0.01);
 		}
-		*/
+
+		vertAttr.bufferData();
+		opacAttr.bufferData();
+
+		context.cache.clear();
+		context.clear();
+		polys.draw();
 
 		if (nodes.length) {
 			this.reset();
 		}
 	},
 
-	drawNode: function (ctx, node) {
-		var x = node[0] * this.width;
-		var y = node[1] * this.height;
-		var radius = node[2] / 100;
-
-		ctx.beginPath();
-		ctx.arc(x, y, radius, 0, Math.PI * 2, false);
-		ctx.fill();
-
-		ctx.beginPath();
-		ctx.arc(x, y, radius * 4, 0, Math.PI * 2, false);
-		ctx.stroke();
-	},
-
-	// TODO
-	// Sort connection points by angle to improve quality of drawn polygons
-	drawConnections: function (ctx, node) {
-		var w = this.width;
-		var h = this.height;
-		var x0 = node[0] * w;
-		var y0 = node[1] * h;
-		var radius = node[2] / (1000 * 5);
-
-		var nodes = this.search(this.quadtree, node[0], node[1], radius);
-		var i, il, n, x1, y1;
-
-		ctx.beginPath();
-		ctx.moveTo(x0, y0);
-
-		for (i = 0, il = nodes.length; i < il; i ++) {
-			n = nodes[i];
-			x1 = n[0] * w;
-			y1 = n[1] * h;
-
-			if (i % 2 === 0) { ctx.lineTo(x0, y0); }
-			ctx.lineTo(x1, y1);
+	updateNode: (function () {
+		function angleRel(a, b) {
+			return Math.atan2(b[1] - a[1], b[0] - a[0]);
 		}
 
-		ctx.closePath();
-		ctx.fill();
-	},
+		function angleSort(n) {
+			return function (a, b) {
+				return angleRel(n, a) - angleRel(n, b);
+			};
+		}
+
+		function pushVert(verts, opacity, n) {
+			var index = verts._index;
+			if (!index || index * 2 + 1 > verts.length) {
+				index = verts._index = 0;
+			}
+
+			verts[index * 2] = n[0] * 2 - 1;
+			verts[index * 2 + 1] = n[1] * 2 - 1;
+			opacity[index] = 1;
+			verts._index ++;
+		}
+
+		return function (vertAttr, opacAttr, node, index) {
+			var vertices = vertAttr.data;
+			var opacity = opacAttr.data;
+
+			var radius = node[2] / (1000 * 3);
+			var nodes = this.search(this.quadtree, node[0], node[1], radius);
+			var i, il, n0, n1;
+
+			nodes.sort(angleSort(node));
+
+			for (i = 1, il = nodes.length; i < il; i ++) {
+				n0 = nodes[i - 1];
+				n1 = nodes[i];
+
+				pushVert(vertices, opacity, node);
+				pushVert(vertices, opacity, n0);
+				pushVert(vertices, opacity, n1);
+			}
+		};
+	}()),
 
 	search: function (quadtree, x, y, radius) {
 		var x0 = x - radius;

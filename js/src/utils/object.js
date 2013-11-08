@@ -5,5 +5,6 @@ module.exports = {
 				o[prop] = attrs[prop];
 			}
 		}
+		return o;
 	}
 };

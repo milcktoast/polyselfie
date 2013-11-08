@@ -8,6 +8,7 @@ module.exports = function (grunt) {
 	grunt.initConfig({
 		browserify: {
 			main: {
+				options: { transform: ["brfs"] },
 				files: {
 					"js/main-bundle.js": ["js/src/main.js"]
 				}
@@ -31,7 +32,7 @@ module.exports = function (grunt) {
 
 		watch: {
 			scripts: {
-				files: ["js/**/*.js"],
+				files: ["js/**/*"],
 				tasks: ["browserify"],
 				options: {
 					spawn: false,
