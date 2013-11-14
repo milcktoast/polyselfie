@@ -15,7 +15,7 @@ var VIDEO_SCALE = 16;
 
 var video = new VideoBuffer(4 * VIDEO_SCALE, 3 * VIDEO_SCALE);
 var sketch = new VideoSketch(video, {
-	nodesMax: 200,
+	nodesMax: 80,
 	nodesRemove: 10
 });
 

@@ -15,6 +15,8 @@ var createQuadtree = quadtree()
 	.y(function (d) { return d[1]; });
 
 var Glow = require("../../libs/glow/GLOWCore");
+var Plane = require("../../libs/glow/PlaneGeometry");
+var Float = require("../../libs/glow/Float");
 
 var DEBUG_POOL = false;
 
@@ -34,9 +36,9 @@ function VideoSketch(video, opts) {
 	this.context = new Glow.Context({
 		// preserveDrawingBuffer: true,
 		clear: {
-			red: 0.2,
-			green: 0.2,
-			blue: 0.2,
+			red: 0.1,
+			green: 0.1,
+			blue: 0.1,
 			alpha: 1.0
 		}
 	});
@@ -52,6 +54,7 @@ function VideoSketch(video, opts) {
 	});
 
 	this.initShader(5000);
+	this.initPostShader();
 }
 
 VideoSketch.prototype = {
@@ -61,11 +64,16 @@ VideoSketch.prototype = {
 		fragmentShader: fs.readFileSync(__dirname + "/../shaders/poly.frag")
 	},
 
+	postFxShaderConfig: {
+		vertexShader: fs.readFileSync(__dirname + "/../shaders/postFx.vert"),
+		fragmentShader: fs.readFileSync(__dirname + "/../shaders/postFx.frag")
+	},
+
 	initShader: function (polys) {
 		var shaderConfig = object.extend({
 			data: {
-				screenWidth: { value: array.create("f32", 1) },
-				screenHeight: { value: array.create("f32", 1) },
+				screenWidth: new Float(1.0),
+				screenHeight: new Float(1.0),
 
 				opacity: array.create("f32", polys * 3),
 				vertices: array.create("f32", polys * 3 * 2)
@@ -87,14 +95,42 @@ VideoSketch.prototype = {
 		}, this.polyShaderConfig);
 
 		this.polys = new Glow.Shader(shaderConfig);
-		console.log(shaderConfig, this.polys);
+	},
+
+	initPostShader: function () {
+		var fbo = new Glow.FBO({
+			depth: true,
+			stencil: false
+		});
+
+		var postEffectShader = object.extend({
+			data: {
+				offset: new Float(1.0),
+				darkness: new Float(1.0),
+				blur: new Float(0.02),
+				tDiffuse: fbo,
+				vertices: Plane.vertices(),
+				uvs: Plane.uvs()
+			},
+
+			indices: Plane.indices(),
+			primitives: this.gl.TRIANGLES
+		}, this.postFxShaderConfig);
+
+		this.fbo = fbo;
+		this.postEffect = new Glow.Shader(postEffectShader);
 	},
 
 	setSize: function (w, h) {
 		var el = this.el;
 		var polys = this.polys;
+
 		this.width = el.width = polys.screenWidth.value[0] = w;
 		this.height = el.height = polys.screenHeight.value[0] = h;
+
+		this.context.resize(w, h);
+		this.fbo.resize(w, h);
+
 		this.size = w * h;
 	},
 
@@ -149,7 +185,9 @@ VideoSketch.prototype = {
 
 		var nodes = this.nodes;
 		var context = this.context;
+		var fbo = this.fbo;
 		var polys = this.polys;
+		var postEffect = this.postEffect;
 		var imageData = video.readPixels();
 
 		// Push nodes from video frame diff
@@ -175,14 +213,20 @@ VideoSketch.prototype = {
 
 		// Fade
 		for (i = 0, il = opacity.length; i < il; i ++) {
-			opacity[i] = Math.max(0, opacity[i] - 0.01);
+			opacity[i] = Math.max(0, opacity[i] - 0.1);
 		}
 
 		vertAttr.bufferData();
 		opacAttr.bufferData();
 
 		context.cache.clear();
+		fbo.bind();
 		context.clear();
+
+		polys.draw();
+
+		fbo.unbind();
+		postEffect.draw();
 		polys.draw();
 
 		if (nodes.length) {
