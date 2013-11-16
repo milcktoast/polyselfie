@@ -1,4 +1,3 @@
-/*global GL*/
 
 // Sketch
 // ------
@@ -105,10 +104,18 @@ VideoSketch.prototype = {
 
 		var postEffectShader = object.extend({
 			data: {
-				offset: new Float(1.0),
-				darkness: new Float(1.0),
-				blur: new Float(0.02),
+				offset: new Float(0.25),
+				darkness: new Float(5.0),
+
+				time: new Float(0),
+				blur: new Float(0.03),
+
+				nIntensity: new Float(0.5),
+				sIntensity: new Float(0.5),
+				sCount: new Float(4096),
+
 				tDiffuse: fbo,
+
 				vertices: Plane.vertices(),
 				uvs: Plane.uvs()
 			},
@@ -206,6 +213,9 @@ VideoSketch.prototype = {
 		var opacity = opacAttr.data;
 		var i, il;
 
+		// Time
+		postEffect.time.add(0.1);
+
 		// Update geometry
 		for (i = 0, il = nodes.length; i < il; i ++) {
 			this.updateNode(vertAttr, opacAttr, nodes[i], i);
@@ -224,8 +234,8 @@ VideoSketch.prototype = {
 		context.clear();
 
 		polys.draw();
-
 		fbo.unbind();
+
 		postEffect.draw();
 		polys.draw();
 
