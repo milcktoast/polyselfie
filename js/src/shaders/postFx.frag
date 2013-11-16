@@ -26,13 +26,14 @@ float random(vec3 scale, float seed) {
 }
 
 void main() {
+	vec4 texel = texture2D(tDiffuse, uv);
 
 	// Vignette
 	// --------
 
-	vec4 texel = texture2D(tDiffuse, uv);
 	vec2 vuv = (uv - vec2(0.5)) * vec2(offset);
-	texel = vec4(mix(texel.rgb, vec3(1.0 - darkness), dot(vuv, vuv)), texel.a);
+	float dark = darkness + darkness * sin(time * 0.1) * cos(time * 0.5) * cos(time * 2.0) * 0.2;
+	texel = vec4(mix(texel.rgb, vec3(1.0 - dark), dot(vuv, vuv)), texel.a);
 
 	// Film grain
 	// ----------
