@@ -35,6 +35,10 @@ module.exports = function (grunt) {
 		},
 
 		uglify: {
+			libs: {
+				src: ["js/libs-bundle.js"],
+				dest: "js/libs-bundle.js"
+			},
 			main: {
 				src: ["js/main-bundle.js"],
 				dest: "js/main-bundle.js"
