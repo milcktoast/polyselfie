@@ -13,5 +13,5 @@ void main() {
 	float x = gl_FragCoord.x / screenWidth;
 	float y = gl_FragCoord.y / screenHeight;
 
-	gl_FragColor = vec4(x, 0.4, y, vOpacity * 0.05);
+	gl_FragColor = vec4(x, 0.4, y, vOpacity * 0.03);
 }

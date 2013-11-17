@@ -35,9 +35,9 @@ function VideoSketch(video, opts) {
 	this.context = new Glow.Context({
 		// preserveDrawingBuffer: true,
 		clear: {
-			red: 0.1,
-			green: 0.1,
-			blue: 0.1,
+			red:   20 / 255,
+			green:  0 / 255,
+			blue:  14 / 255,
 			alpha: 1.0
 		}
 	});
@@ -105,7 +105,7 @@ VideoSketch.prototype = {
 		var postEffectShader = object.extend({
 			data: {
 				offset: new Float(0.25),
-				darkness: new Float(5.0),
+				darkness: new Float(4.0),
 
 				time: new Float(0),
 				blur: new Float(0.03),
