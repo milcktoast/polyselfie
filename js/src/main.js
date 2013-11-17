@@ -44,8 +44,8 @@ var onRequest = function (err) {
 };
 
 if (DEBUG) {
-	body.appendChild(video.el);
-	extend(video.el.style, {
+	body.appendChild(video.bufferDisplay);
+	extend(video.bufferDisplay.style, {
 		position: "absolute",
 		top: "10px",
 		left: "10px",

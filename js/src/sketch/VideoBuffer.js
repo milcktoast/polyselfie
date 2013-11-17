@@ -8,7 +8,9 @@ module.exports = VideoBuffer;
 function VideoBuffer(width, height) {
 	this.el = document.createElement("video");
 	this.buffer = document.createElement("canvas");
+	this.bufferDisplay = document.createElement("canvas");
 	this.ctx = this.buffer.getContext("2d");
+	this.ctxDisplay = this.bufferDisplay.getContext("2d");
 
 	this.setSize(width, height);
 	this.pixels = createArray("f32", this.size * 4);
@@ -35,9 +37,10 @@ VideoBuffer.prototype = {
 	setSize: function (w, h) {
 		var el = this.el;
 		var buffer = this.buffer;
+		var bufferDisplay = this.bufferDisplay;
 
-		this.width = el.width = buffer.width = w;
-		this.height = el.height = buffer.height = h;
+		this.width = el.width = buffer.width = bufferDisplay.width = w;
+		this.height = el.height = buffer.height = bufferDisplay.height = h;
 		this.size = w * h;
 	},
 
@@ -106,7 +109,8 @@ VideoBuffer.prototype = {
 		return ctx.getImageData(0, 0, w, h);
 	},
 
-	forFrameDiff: function (pixels, range, map) {
+	forFrameDiff: function (imageData, range, map) {
+		var pixels = imageData.data;
 		var hasDiff = this.hasDiff;
 		var pixelsPrev = this.pixels;
 		var points = this.points;
@@ -148,7 +152,10 @@ VideoBuffer.prototype = {
 			}
 		}
 
-		if (movement > 0) { this.hasDiff = true; }
+		if (movement > 0) {
+			this.ctxDisplay.putImageData(imageData, 0, 0);
+			this.hasDiff = true;
+		}
 	}
 
 };

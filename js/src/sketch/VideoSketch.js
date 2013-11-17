@@ -112,7 +112,7 @@ VideoSketch.prototype = {
 
 				nIntensity: new Float(0.5),
 				sIntensity: new Float(0.5),
-				sCount: new Float(4096),
+				sCount: new Float(4096 * 0.9),
 
 				tDiffuse: fbo,
 
@@ -198,7 +198,7 @@ VideoSketch.prototype = {
 		var imageData = video.readPixels();
 
 		// Push nodes from video frame diff
-		video.forFrameDiff(imageData.data, this.range, this.addNode);
+		video.forFrameDiff(imageData, this.range, this.addNode);
 
 		// Index nodes in quad-tree
 		if (nodes.length) {
