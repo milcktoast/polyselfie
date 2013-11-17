@@ -8,14 +8,14 @@ var object = require("../utils/object");
 var array = require("../utils/array");
 
 var vec2 = require("../math/vec2");
-var quadtree = require("../../libs/d3/d3-quadtree");
+var quadtree = require("d3Quadtree");
 var createQuadtree = quadtree()
 	.x(function (d) { return d[0]; })
 	.y(function (d) { return d[1]; });
 
-var Glow = require("../../libs/glow/GLOWCore");
-var Plane = require("../../libs/glow/PlaneGeometry");
-var Float = require("../../libs/glow/Float");
+var Glow = require("GlowCore");
+var Plane = require("GlowPlaneGeometry");
+var Float = require("GlowFloat");
 
 var DEBUG_POOL = false;
 

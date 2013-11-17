@@ -7,19 +7,37 @@ module.exports = function (grunt) {
 
 	grunt.initConfig({
 		browserify: {
+			libs: {
+				src: ["js/libs/**/*.js"],
+				dest: "js/libs-bundle.js",
+				options: {
+					alias: [
+						"js/libs/d3/d3Quadtree.js:d3Quadtree",
+						"js/libs/glow/GlowCore.js:GlowCore",
+						"js/libs/glow/GlowFloat.js:GlowFloat",
+						"js/libs/glow/GlowPlaneGeometry.js:GlowPlaneGeometry"
+					]
+				}
+			},
 			main: {
-				options: { transform: ["brfs"] },
-				files: {
-					"js/main-bundle.js": ["js/src/main.js"]
+				src: ["js/src/main.js"],
+				dest: "js/main-bundle.js",
+				options: {
+					external: [
+						"d3Quadtree",
+						"GlowCore",
+						"GlowFloat",
+						"GlowPlaneGeometry"
+					],
+					transform: ["brfs"]
 				}
 			}
 		},
 
 		uglify: {
 			main: {
-				files: {
-					"js/main-bundle.js": ["js/main-bundle.js"]
-				}
+				src: ["js/main-bundle.js"],
+				dest: "js/main-bundle.js"
 			}
 		},
 
