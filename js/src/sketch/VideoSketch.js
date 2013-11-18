@@ -50,10 +50,13 @@ function VideoSketch(video, opts) {
 		equation: this.gl.FUNC_ADD,
 		src: this.gl.SRC_ALPHA,
 		dst: this.gl.ONE
+		// dst: this.gl.ONE_MINUS_SRC_ALPHA
 	});
 
-	this.initShader(5000);
+	this.initShader(10000);
 	this.initPostShader();
+
+	this.updateNode = this.nodeUpdater(this.polys, this.colors, this.range);
 }
 
 VideoSketch.prototype = {
@@ -191,7 +194,6 @@ VideoSketch.prototype = {
 		node[2] = diff;
 
 		this.nodes.push(node);
-		this.nodeDiffMax = Math.max(this.nodeDiffMax, diff);
 	},
 
 	updateQuadtree: function () {
@@ -200,17 +202,12 @@ VideoSketch.prototype = {
 
 	draw: function () {
 		var video = this.video;
-		if (!(video.isStreaming || video.isPlaying)) { return; }
+		if (!video.isPlaying) { return; }
 
 		var nodes = this.nodes;
-		var context = this.context;
-		var fbo = this.fbo;
-		var polys = this.polys;
-		var postEffect = this.postEffect;
 		var imageData = video.readPixels();
 
 		// Push nodes from video frame diff
-		this.nodeDiffMax = 0;
 		video.forFrameDiff(imageData, this.range, this.addNode);
 
 		// Index nodes in quad-tree
@@ -220,6 +217,11 @@ VideoSketch.prototype = {
 				console.log(nodes.length, this._nodePool.length);
 			}
 		}
+
+		var context = this.context;
+		var fbo = this.fbo;
+		var polys = this.polys;
+		var postEffect = this.postEffect;
 
 		var vertAttr = polys.attributes.vertices;
 		var colorAttr = polys.attributes.color;
@@ -232,7 +234,7 @@ VideoSketch.prototype = {
 
 		// Update geometry
 		for (i = 0, il = nodes.length; i < il; i ++) {
-			this.updateNode(vertAttr, colorAttr, opacAttr, nodes[i], i);
+			this.updateNode(nodes[i]);
 		}
 
 		// Fade
@@ -259,8 +261,16 @@ VideoSketch.prototype = {
 		}
 	},
 
-	updateNode: (function () {
-		var nodeDiffMax;
+	nodeUpdater: function (shader, colors, range) {
+		var vertIndex = 0;
+		var attrs = shader.attributes;
+		var vertices = attrs.vertices.data;
+		var color = attrs.color.data;
+		var opacity = attrs.opacity.data;
+
+		function mapLinear(x, a1, a2, b1, b2) {
+			return b1 + (x - a1) * (b2 - b1) / (a2 - a1);
+		}
 
 		function angleRel(a, b) {
 			return Math.atan2(b[1] - a[1], b[0] - a[0]);
@@ -272,33 +282,28 @@ VideoSketch.prototype = {
 			};
 		}
 
-		function pushVert(verts, color, colors, opacity, n) {
-			var index = verts._index;
-			if (!index || index * 2 + 1 > verts.length) {
-				index = verts._index = 0;
+		function pushVert(n) {
+			var index = vertIndex;
+			if (!index || index * 2 + 1 > vertices.length) {
+				index = vertIndex = 0;
 			}
 
-			var colorIndex = Math.floor(Math.min(n[2], 250) / 250) * (colors.length - 1);
-			var selectedColor = colors[colorIndex];
+			var colorIndex = mapLinear(n[2], range[0], range[1], 0, colors.length - 1);
+			var selectedColor = colors[Math.round(colorIndex)];
 
-			verts[index * 2]     = n[0] * 2 - 1;
-			verts[index * 2 + 1] = n[1] * 2 - 1;
-			
+			vertices[index * 2]     = n[0] * 2 - 1;
+			vertices[index * 2 + 1] = n[1] * 2 - 1;
+
 			color[index * 3]     = selectedColor[0];
 			color[index * 3 + 1] = selectedColor[1];
 			color[index * 3 + 2] = selectedColor[2];
 
 			opacity[index] = 1;
 
-			verts._index ++;
+			vertIndex ++;
 		}
 
-		return function (vertAttr, colorAttr, opacAttr, node, index) {
-			var vertices = vertAttr.data;
-			var color = colorAttr.data;
-			var opacity = opacAttr.data;
-
-			var colors = this.colors;
+		return function (node) {
 			var radius = node[2] / (1000 * 3);
 			var nodes = this.search(this.quadtree, node[0], node[1], radius);
 			var i, il, n0, n1;
@@ -309,12 +314,12 @@ VideoSketch.prototype = {
 				n0 = nodes[i - 1];
 				n1 = nodes[i];
 
-				pushVert(vertices, color, colors, opacity, node);
-				pushVert(vertices, color, colors, opacity, n0);
-				pushVert(vertices, color, colors, opacity, n1);
+				pushVert(node);
+				pushVert(n0);
+				pushVert(n1);
 			}
 		};
-	}()),
+	},
 
 	search: function (quadtree, x, y, radius) {
 		var x0 = x - radius;
