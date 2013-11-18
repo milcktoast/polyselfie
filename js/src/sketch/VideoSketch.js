@@ -58,6 +58,14 @@ function VideoSketch(video, opts) {
 
 VideoSketch.prototype = {
 
+	colors: [
+		[ 39,  25,  70],
+		[ 34,  52, 106],
+		[  0, 116, 118],
+		[ 27, 182, 182],
+		[248, 188,  21]
+	],
+
 	polyShaderConfig: {
 		vertexShader: fs.readFileSync(__dirname + "/../shaders/poly.vert"),
 		fragmentShader: fs.readFileSync(__dirname + "/../shaders/poly.frag")
@@ -68,25 +76,28 @@ VideoSketch.prototype = {
 		fragmentShader: fs.readFileSync(__dirname + "/../shaders/postFx.frag")
 	},
 
-	initShader: function (polys) {
+	initShader: function (polyCount) {
 		var shaderConfig = object.extend({
 			data: {
 				screenWidth: new Float(1.0),
 				screenHeight: new Float(1.0),
 
-				opacity: array.create("f32", polys * 3),
-				vertices: array.create("f32", polys * 3 * 2)
+				opacity: array.create("f32", polyCount * 3),
+				color: array.create("f32", polyCount * 3 * 3),
+				vertices: array.create("f32", polyCount * 3 * 2)
 			},
 
-			indices: array.range("ui8", polys * 3),
+			indices: array.range("ui8", polyCount * 3),
 			primitives: this.gl.TRIANGLES,
 
 			interleave: {
+				color: false,
 				opacity: false,
 				vertices: false
 			},
 
 			usage: {
+				color: this.gl.DYNAMIC_DRAW,
 				opacity: this.gl.DYNAMIC_DRAW,
 				vertices: this.gl.DYNAMIC_DRAW,
 				primitives: this.gl.DYNAMIC_DRAW
@@ -180,6 +191,7 @@ VideoSketch.prototype = {
 		node[2] = diff;
 
 		this.nodes.push(node);
+		this.nodeDiffMax = Math.max(this.nodeDiffMax, diff);
 	},
 
 	updateQuadtree: function () {
@@ -198,6 +210,7 @@ VideoSketch.prototype = {
 		var imageData = video.readPixels();
 
 		// Push nodes from video frame diff
+		this.nodeDiffMax = 0;
 		video.forFrameDiff(imageData, this.range, this.addNode);
 
 		// Index nodes in quad-tree
@@ -209,6 +222,7 @@ VideoSketch.prototype = {
 		}
 
 		var vertAttr = polys.attributes.vertices;
+		var colorAttr = polys.attributes.color;
 		var opacAttr = polys.attributes.opacity;
 		var opacity = opacAttr.data;
 		var i, il;
@@ -218,7 +232,7 @@ VideoSketch.prototype = {
 
 		// Update geometry
 		for (i = 0, il = nodes.length; i < il; i ++) {
-			this.updateNode(vertAttr, opacAttr, nodes[i], i);
+			this.updateNode(vertAttr, colorAttr, opacAttr, nodes[i], i);
 		}
 
 		// Fade
@@ -227,6 +241,7 @@ VideoSketch.prototype = {
 		}
 
 		vertAttr.bufferData();
+		colorAttr.bufferData();
 		opacAttr.bufferData();
 
 		context.cache.clear();
@@ -245,6 +260,8 @@ VideoSketch.prototype = {
 	},
 
 	updateNode: (function () {
+		var nodeDiffMax;
+
 		function angleRel(a, b) {
 			return Math.atan2(b[1] - a[1], b[0] - a[0]);
 		}
@@ -255,22 +272,33 @@ VideoSketch.prototype = {
 			};
 		}
 
-		function pushVert(verts, opacity, n) {
+		function pushVert(verts, color, colors, opacity, n) {
 			var index = verts._index;
 			if (!index || index * 2 + 1 > verts.length) {
 				index = verts._index = 0;
 			}
 
-			verts[index * 2] = n[0] * 2 - 1;
+			var colorIndex = Math.floor(Math.min(n[2], 250) / 250) * (colors.length - 1);
+			var selectedColor = colors[colorIndex];
+
+			verts[index * 2]     = n[0] * 2 - 1;
 			verts[index * 2 + 1] = n[1] * 2 - 1;
+			
+			color[index * 3]     = selectedColor[0];
+			color[index * 3 + 1] = selectedColor[1];
+			color[index * 3 + 2] = selectedColor[2];
+
 			opacity[index] = 1;
+
 			verts._index ++;
 		}
 
-		return function (vertAttr, opacAttr, node, index) {
+		return function (vertAttr, colorAttr, opacAttr, node, index) {
 			var vertices = vertAttr.data;
+			var color = colorAttr.data;
 			var opacity = opacAttr.data;
 
+			var colors = this.colors;
 			var radius = node[2] / (1000 * 3);
 			var nodes = this.search(this.quadtree, node[0], node[1], radius);
 			var i, il, n0, n1;
@@ -281,9 +309,9 @@ VideoSketch.prototype = {
 				n0 = nodes[i - 1];
 				n1 = nodes[i];
 
-				pushVert(vertices, opacity, node);
-				pushVert(vertices, opacity, n0);
-				pushVert(vertices, opacity, n1);
+				pushVert(vertices, color, colors, opacity, node);
+				pushVert(vertices, color, colors, opacity, n0);
+				pushVert(vertices, color, colors, opacity, n1);
 			}
 		};
 	}()),
