@@ -16,7 +16,14 @@ var VIDEO_SCALE = 16;
 var video = new VideoBuffer(4 * VIDEO_SCALE, 3 * VIDEO_SCALE);
 var sketch = new VideoSketch(video, {
 	nodesMax: 80,
-	nodesRemove: 10
+	nodesRemove: 10,
+	colors: [
+		[ 39,  25,  70],
+		[ 34,  52, 106],
+		[  0, 116, 118],
+		[ 27, 182, 182],
+		[248, 188,  21]
+	]
 });
 
 var loop = new Looper(function (frame) {

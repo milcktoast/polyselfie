@@ -28,6 +28,7 @@ function VideoSketch(video, opts) {
 	this._nodePoolIndex = 0;
 	this._nodePool = [];
 	this.nodes = [];
+	this.colors = this.colors || this.defaultColors;
 
 	this.quadtree = null;
 	this.range = array.create("f32", 2);
@@ -61,12 +62,9 @@ function VideoSketch(video, opts) {
 
 VideoSketch.prototype = {
 
-	colors: [
-		[ 39,  25,  70],
-		[ 34,  52, 106],
-		[  0, 116, 118],
-		[ 27, 182, 182],
-		[248, 188,  21]
+	defaultColors: [
+		[100, 100, 100],
+		[255, 255, 255]
 	],
 
 	polyShaderConfig: {
