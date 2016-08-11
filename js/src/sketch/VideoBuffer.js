@@ -21,17 +21,19 @@ VideoBuffer.prototype = {
 
 	request: function (cb) {
 		var that = this;
-		navigator.webkitGetUserMedia({video: true}, function (stream) {
-			that.hasDiff = false;
-			that.isStreaming = true;
-			that.stream = stream;
-			that.setSource(window.URL.createObjectURL(stream));
-			that.play();
-			cb(null);
-		}, function (error) {
-			console.error(error);
-			cb(error);
-		});
+		navigator.mediaDevices.getUserMedia({video: true})
+			.then(function (stream) {
+				that.hasDiff = false;
+				that.isStreaming = true;
+				that.stream = stream;
+				that.pause();
+				that.setSource(window.URL.createObjectURL(stream));
+				that.play();
+				cb(null);
+			}).catch(function (error) {
+				console.error(error);
+				cb(error);
+			});
 	},
 
 	setSize: function (w, h) {
@@ -82,12 +84,12 @@ VideoBuffer.prototype = {
 
 	play: function () {
 		this.isPlaying = true;
-		this.el.play();
+		return this.el.play();
 	},
 
 	pause: function () {
 		this.isPlaying = false;
-		this.el.pause();
+		return this.el.pause();
 	},
 
 	toggle: function () {
