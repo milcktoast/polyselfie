@@ -27,7 +27,7 @@ VideoBuffer.prototype = {
 				that.isStreaming = true;
 				that.stream = stream;
 				that.pause();
-				that.setSource(window.URL.createObjectURL(stream));
+				that.setSource(stream);
 				that.play();
 				cb(null);
 			}).catch(function (error) {
@@ -48,7 +48,7 @@ VideoBuffer.prototype = {
 
 	setSource: function (source, formats) {
 		if (!formats) {
-			this.el.src = source;
+			this.el.srcObject = source;
 			return;
 		}
 

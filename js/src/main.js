@@ -8,7 +8,7 @@ var Looper = require("./utils/Looper");
 var VideoBuffer = require("./sketch/VideoBuffer");
 var VideoSketch = require("./sketch/VideoSketch");
 
-var DEBUG = true;
+var DEBUG = false;
 var VIDEO_SCALE = 16;
 
 // Sketch setup
@@ -31,8 +31,10 @@ var loop = new Looper(function (frame) {
 });
 
 // video.setSource("/video/selfie", ["ogv", "mp4"]);
-sketch.setSize(window.innerWidth, window.innerHeight);
-sketch.setRange(200, 400);
+setTimeout(function () {
+	sketch.setSize(window.innerWidth, window.innerHeight);
+	sketch.setRange(200, 400);
+}, 1);
 
 // Elements / events
 
