@@ -9,7 +9,7 @@ varying vec3 vColor;
 varying float vOpacity;
 
 void main() {
-	vec2 size = vec2(screenWidth, screenHeight);
+	// vec2 size = vec2(screenWidth, screenHeight);
 	vColor = color;
 	vOpacity = opacity;
 	gl_Position = vec4(vertices.x, vertices.y, 1.0, 1.0);

@@ -144,8 +144,10 @@ VideoSketch.prototype = {
 		var el = this.el;
 		var polys = this.polys;
 
-		this.width = el.width = polys.screenWidth.value[0] = w;
-		this.height = el.height = polys.screenHeight.value[0] = h;
+		// this.width = el.width = polys.screenWidth.value[0] = w;
+		// this.height = el.height = polys.screenHeight.value[0] = h;
+		this.width = el.width = w;
+		this.height = el.height = h;
 
 		this.context.resize(w, h);
 		this.fbo.resize(w, h);
